@@ -10,12 +10,17 @@ import xarray
 import glob
 import pandas as pd
 import numpy as np
-from wrf import getvar
+from wrf import to_np, getvar, smooth2d, get_basemap, latlon_coords
+from netCDF4 import Dataset
+import matplotlib.pyplot as plt
+from matplotlib.cm import get_cmap
+
+
 def gatherfiles(prefix):
     return glob.glob(prefix+'*.nc')
     
 files = gatherfiles('wrfout')
-ncfile = xarray.Dataset("wrfout_d01_2016-08-02_12:00:00.nc")
+ncfile = Dataset("wrfout_d01_2016-08-02_12:00:00.nc")
 
 #power =  Cp 1/2 rho A V**3
 #power is power output in kilowats
@@ -38,6 +43,44 @@ pressground, uaground, vaground,Tground = press[0,:,:],ua[0,:,:], va[0,:,:], T[0
 totalwind = np.sqrt(uaground**2 + vaground**2)
 
 energyproduction = (0.5 * Area * totalwind**3 * cp)/10**6 #megawatts output
+
+
+def energyproduction(files):
+    '''creates output plots for all wrfoutput files in a given directory
+    
+    
+    Parameters
+    '''
+    for file in files:
+        ncfile = Dataset(file)
+        cbarticks=np.arange(0.0,10.0,0.5)
+        r = 52.0                            #meters, rotorlength
+        Area = np.pi * r**2
+        cp = 0.4                            #unitless       
+        density = 1.23                      #kg/m^3
+        press = getvar(ncfile, 'pressure')  #hPa
+        T = getvar(ncfile,'T')              #K
+        ua = getvar(ncfile, 'ua')           #m/s
+        va = getvar(ncfile, 'va')           #m/s
+        pressground, uaground, vaground,Tground = press[0,:,:],ua[0,:,:],va[0,:,:],T[0,:,:]
+        bm = get_basemap(pressground)
+        fig = plt.figure(figsize=(12,9))
+        totalwind = np.sqrt(uaground**2 + vaground**2)
+        energyproduction = (0.5 * density * Area * totalwind**3 * cp)/10**6#megawatts output
+        lat,lon = latlon_coords(pressground)
+        x,y = bm(to_np(lon),to_np(lat))
+        bm.drawcoastlines(linewidth=0.25)
+        bm.drawstates(linewidth=0.25)
+        bm.drawcountries(linewidth=0.25)
+        bm.contour(x, y, to_np(energyproduction), cbarticks, colors="black",vmin=0,vmax=10.0)
+        bm.contourf(x, y, to_np(energyproduction), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
+        plt.colorbar(shrink=.62,ticks=cbarticks)
+        plt.show()
+    #if count ==23:
+    #    dailyenergy =0
+    #dailyenergy = energyproduction + dailyenergy
+
+
 
 
 def gathervariables(dataframe):
