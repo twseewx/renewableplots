@@ -43,15 +43,32 @@ pressground, uaground, vaground,Tground = press[0,:,:],ua[0,:,:], va[0,:,:], T[0
 totalwind = np.sqrt(uaground**2 + vaground**2)
 
 energyproduction = (0.5 * Area * totalwind**3 * cp)/10**6 #megawatts output
+def gettimeanddates(file):
+    split = file.split('_')
+    date = split[2]
+    hour = split[3].split(':')[0]
+    return date, hour
+def energyproduction(files, level):
+    """
+    Creates hourly and daily energy production outputs for wind a turbine
+    output plots
 
-
-def energyproduction(files):
-    '''creates output plots for all wrfoutput files in a given directory
-    
-    
     Parameters
-    '''
+    ----------
+    arg1: list
+        A 1D list of the file outputs from WRF
+    arg2: integer
+        level of the WRF module to run the evaluation on, typicall 0-2
+        for low levels of the atmosphere. 
+
+    Returns
+    -------
+    None
+    """
+    count = 0
+    dailyenergy = 0
     for file in files:
+        date, hour = gettimeanddates(file)
         ncfile = Dataset(file)
         cbarticks=np.arange(0.0,10.0,0.5)
         r = 52.0                            #meters, rotorlength
@@ -62,7 +79,7 @@ def energyproduction(files):
         T = getvar(ncfile,'T')              #K
         ua = getvar(ncfile, 'ua')           #m/s
         va = getvar(ncfile, 'va')           #m/s
-        pressground, uaground, vaground,Tground = press[0,:,:],ua[0,:,:],va[0,:,:],T[0,:,:]
+        pressground, uaground, vaground,Tground = press[level,:,:],ua[level,:,:],va[level,:,:],T[level,:,:]
         bm = get_basemap(pressground)
         fig = plt.figure(figsize=(12,9))
         totalwind = np.sqrt(uaground**2 + vaground**2)
@@ -75,7 +92,30 @@ def energyproduction(files):
         bm.contour(x, y, to_np(energyproduction), cbarticks, colors="black",vmin=0,vmax=10.0)
         bm.contourf(x, y, to_np(energyproduction), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
         plt.colorbar(shrink=.62,ticks=cbarticks)
+        plt.title('Hourly Energy Production for '+ date + ' ' + hour)
         plt.show()
+        if count ==23:
+            bm = get_basemap(pressground)
+            fig = plt.figure(figsize=(12,9))
+            totalwind = np.sqrt(uaground**2 + vaground**2)
+            lat,lon = latlon_coords(pressground)
+            x,y = bm(to_np(lon),to_np(lat))
+            bm.drawcoastlines(linewidth=0.25)
+            bm.drawstates(linewidth=0.25)
+            bm.drawcountries(linewidth=0.25)
+            dailyenergy = dailyenergy/24.0
+            bm.contour(x, y, to_np(dailyenergy), cbarticks, colors="black",vmin=0,vmax=10.0)
+            bm.contourf(x, y, to_np(dailyenergy), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
+            plt.colorbar(shrink=.62,ticks=cbarticks)
+            plt.title('Dialy Average ' + yesterdaysdate)
+            plt.show()
+            dailyenergy=0
+            count=0
+        else:
+            dailyenergy = energyproduction + dailyenergy
+            print(dailyenergy)
+            count = count+1
+        yesterdaysdate=date
     #if count ==23:
     #    dailyenergy =0
     #dailyenergy = energyproduction + dailyenergy
