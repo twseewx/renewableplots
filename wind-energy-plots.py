@@ -93,7 +93,8 @@ def energyproduction(files, level):
         bm.contourf(x, y, to_np(energyproduction), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
         plt.colorbar(shrink=.62,ticks=cbarticks)
         plt.title('Hourly Energy Production for '+ date + ' ' + hour)
-        plt.show()
+        plt.savefig('Hourly-output-'+date+'-'+hour)
+#        plt.show()
         if count ==23:
             bm = get_basemap(pressground)
             fig = plt.figure(figsize=(12,9))
@@ -108,12 +109,12 @@ def energyproduction(files, level):
             bm.contourf(x, y, to_np(dailyenergy), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
             plt.colorbar(shrink=.62,ticks=cbarticks)
             plt.title('Dialy Average ' + yesterdaysdate)
-            plt.show()
+            plt.savefig('Daily-Average-'+yesterdaysdate)
+#            plt.show()
             dailyenergy=0
             count=0
         else:
             dailyenergy = energyproduction + dailyenergy
-            print(dailyenergy)
             count = count+1
         yesterdaysdate=date
     #if count ==23:
