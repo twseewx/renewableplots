@@ -83,8 +83,18 @@ def energyproduction(files, level):
         bm = get_basemap(pressground)
         fig = plt.figure(figsize=(12,9))
         totalwind = np.sqrt(uaground**2 + vaground**2)
+        #set total wind so that if below 3.0 or above 22.0 wind is 0 meaning prod is zero
+        wind = totalwind.to_pandas()
+        windmatrix = wind.as_matrix()
+        for i in range(0,len(windmatrix)):
+            for k in range(0,len(windmatrix[0])):
+                if windmatrix[i,k] <3.0:
+                    windmatrix[i,k] = 0.0
+                elif windmatrix[i,k] >22.0:
+                    windmatrix[i,k] = 0.0
+        energyproduction = (0.5 * density * Area * windmatrix**3 * cp)/10**6#megawatts output
 #        energyproduction = (0.5 * density * Area * totalwind**3 * cp)/10**6#megawatts output
-        energyproduction = (0.5 * density * Area * verticalwindinterpolation(ncfile,52.0)**3 * cp)/10**6
+#        energyproduction = (0.5 * density * Area * verticalwindinterpolation(ncfile,100.0)**3 * cp)/10**6
         lat,lon = latlon_coords(pressground)
         x,y = bm(to_np(lon),to_np(lat))
         bm.drawcoastlines(linewidth=0.25)
@@ -93,8 +103,8 @@ def energyproduction(files, level):
         bm.contour(x, y, to_np(energyproduction), cbarticks, colors="black",vmin=0,vmax=10.0)
         bm.contourf(x, y, to_np(energyproduction), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
         plt.colorbar(shrink=.62,ticks=cbarticks)
-        plt.title('Hourly Energy Production for '+ date + ' ' + hour +' interpolated')
-        plt.savefig('Hourly-output-'+date+'-'+hour+' interpolated')
+        plt.title('Hourly Energy Production for '+ date + ' ' + hour)
+        plt.savefig('Hourly-output-'+date+'-'+hour)
 #        plt.show()
         plt.close()
         if count ==23:
@@ -110,9 +120,9 @@ def energyproduction(files, level):
             bm.contour(x, y, to_np(dailyenergy), cbarticks, colors="black",vmin=0,vmax=10.0)
             bm.contourf(x, y, to_np(dailyenergy), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
             plt.colorbar(shrink=.62,ticks=cbarticks)
-            plt.title('Dialy Average ' + yesterdaysdate + ' interpolated')
-            plt.savefig('Daily-Average-'+ yesterdaysdate + ' interpolated')
-#            plt.show()
+            plt.title('Dialy Average ' + yesterdaysdate)
+            plt.savefig('Daily-Average-'+ yesterdaysdate)
+            plt.show()
             plt.close()
             dailyenergy=0
             count=0
@@ -151,7 +161,15 @@ def verticalwindinterpolation(file, hubheight):
     u10 = getvar(file,'U10')                    #10meter wind U (east-west)
     v10 = getvar(file,'V10')                    #10meter wind V (north-south)
     wind10 = np.sqrt(u10**2 + v10**2)           #Wind Speed, no dir
-    v2 = wind10*(np.log(h2/zO)/np.log(h1/zO)) #interpolated windspeed to height (hubheight)
+    v2 = wind10*(np.log(h2/zO)/np.log(h1/zO))   #interpolated windspeed to height (hubheight)
+    wind = v2.to_pandas()
+    windmatrix = wind.as_matrix()
+    for i in range(0,len(windmatrix)):
+        for k in range(0,len(windmatrix[0])):
+            if windmatrix[i,k] <3.0:
+                windmatrix[i,k] = 0.0
+            elif windmatrix[i,k] >22.0:
+                windmatrix[i,k] = 0.0
     return v2
     
     
