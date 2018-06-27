@@ -15,9 +15,6 @@ from wrf import to_np, getvar, smooth2d, get_basemap, latlon_coords
 from netCDF4 import Dataset
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
-
-def gatherfiles(prefix):
-    return glob.glob(prefix+'*.nc')
     
 #ncfile = Dataset("wrfout_d01_2016-08-02_12:00:00.nc")
 
@@ -43,12 +40,17 @@ def gatherfiles(prefix):
 
 #energyproduction = (0.5 * Area * totalwind**3 * cp)/10**6 #megawatts output
 def main():
-    directory = '/Users/twsee/Desktop/renewableoutput/'
-    for x in os.walk(directory):
-        os.chdir(x[0])
+    directory = glob.glob('/Users/twsee/Desktop/renewableoutput/run*')
+    for folder in directory:
+        os.chdir(folder)
         files = gatherfiles('wrfout')
         energyproduction(files,0)
         energyproductioninterpolated(files,100)
+        percentinthreshold(files,100)
+    
+def gatherfiles(prefix):
+    return glob.glob(prefix+'*')
+
 def gettimeanddates(file):
     split = file.split('_')
     date = split[2]
@@ -210,6 +212,44 @@ def energyproductioninterpolated(files,hubheight):
             count = count+1
         yesterdaysdate=date
 
+
+def percentinthreshold(files,hubheight):
+    totalcount = 0
+    dailycount = 0
+    print(files)
+    date, hour = gettimeanddates(files[0])
+    totalpercentup = np.zeros((19,29))
+    dailypercentup = np.zeros((19,29))
+    for file in files:
+        ncfile = Dataset(file)
+        windmatrix = verticalwindinterpolation(ncfile,hubheight)
+        for i in range(0,len(dailypercentup)):
+            for k in range(0,len(dailypercentup[0])):
+                if (windmatrix[i,k] >3.0) and (windmatrix[i,k]<22.0):
+                    dailypercentup[i,k] = dailypercentup[i,k] + 1
+                    totalpercentup[i,k] = totalpercentup[i,k] + 1
+        if dailycount == 23:
+            dailycount = 0
+            dailypercentup = np.zeros((19,29))
+            totalcount += 1
+        else:
+            dailycount += 1
+            totalcount += 1
+    press = getvar(ncfile, 'pressure')  #hPa
+    pressground = press[0,:,:]
+    bm = get_basemap(pressground)
+    fig = plt.figure(figsize=(12,9))
+    lat,lon = latlon_coords(pressground)
+    x,y = bm(to_np(lon),to_np(lat))
+    bm.drawcoastlines(linewidth=0.25)
+    bm.drawstates(linewidth=0.25)
+    bm.drawcountries(linewidth=0.25)
+    bm.contourf(x, y, to_np((totalpercentup/totalcount)*100),cmap = get_cmap('jet'))
+    plt.colorbar(shrink=.62)
+    plt.title('Energy Production Percentage for '+date+' Model Run')
+    plt.savefig('Energy-Production-Percentage-for-'+date+'-Model-Run')
+    plt.close()
+        
 def verticalwindinterpolation(file, hubheight):
     '''
     Creates an estimated wind speed at the central height of the
