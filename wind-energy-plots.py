@@ -73,6 +73,8 @@ def energyproduction(files, level):
     """
     count = 0
     dailyenergy = 0
+    uaaverage = 0
+    vaaverage = 0
     for file in files:
         date, hour = gettimeanddates(file)
         ncfile = Dataset(file)
@@ -106,6 +108,7 @@ def energyproduction(files, level):
         bm.drawcountries(linewidth=0.25)
         bm.contour(x, y, to_np(energyproduction), cbarticks, colors="black",vmin=0,vmax=10.0)
         bm.contourf(x, y, to_np(energyproduction), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
+        bm.barbs(x,y,uaground,vaground)
         plt.colorbar(shrink=.62,ticks=cbarticks)
         plt.title('Hourly Energy Production for '+ date + ' ' + hour)
         plt.savefig('Hourly-output-'+date+'-'+hour)
@@ -119,8 +122,11 @@ def energyproduction(files, level):
             bm.drawstates(linewidth=0.25)
             bm.drawcountries(linewidth=0.25)
             dailyenergy = dailyenergy/24.0
+            uaaverage = uaaverage/24.0
+            vaaverage = vaaverage/24.0
             bm.contour(x, y, to_np(dailyenergy), cbarticks, colors="black",vmin=0,vmax=10.0)
             bm.contourf(x, y, to_np(dailyenergy), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
+            bm.barbs(x,y,uaaverage,vaaverage)
             plt.colorbar(shrink=.62,ticks=cbarticks)
             plt.title('Dialy Average ' + yesterdaysdate)
             plt.savefig('Daily-Average-'+ yesterdaysdate)
@@ -128,7 +134,11 @@ def energyproduction(files, level):
             plt.close()
             dailyenergy=0
             count=0
+            uaaverage = 0
+            vaaverage = 0
         else:
+            uaaverage = uaground + uaaverage
+            vaaverage = vaground + vaaverage
             dailyenergy = energyproduction + dailyenergy
             count = count+1
         yesterdaysdate=date
@@ -172,6 +182,7 @@ def energyproductioninterpolated(files,hubheight):
         bm.drawcountries(linewidth=0.25)
         bm.contour(x, y, to_np(energyproduction), cbarticks, colors="black",vmin=0,vmax=10.0)
         bm.contourf(x, y, to_np(energyproduction), cbarticks,cmap = get_cmap('jet'),vmin=0,vmax=10.0)
+        bm.barbs(x,y,uaground,vaground)
         plt.colorbar(shrink=.62,ticks=cbarticks)
         plt.title('Hourly Energy Production for '+ date + ' ' + hour+ '-Interpolated-to-'+ str(hubheight)+'m')
         plt.savefig('Hourly-output-'+date+'-'+hour+ '-Interpolated-to-'+str(hubheight)+'m')
