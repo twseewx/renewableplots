@@ -47,7 +47,7 @@ def main():
         energyproduction(files,0)
         energyproductioninterpolated(files,100)
         percentinthreshold(files,100)
-    
+
 def gatherfiles(prefix):
     return glob.glob(prefix+'*')
 
@@ -216,7 +216,6 @@ def energyproductioninterpolated(files,hubheight):
 def percentinthreshold(files,hubheight):
     totalcount = 0
     dailycount = 0
-    print(files)
     date, hour = gettimeanddates(files[0])
     totalpercentup = np.zeros((19,29))
     dailypercentup = np.zeros((19,29))
@@ -288,7 +287,41 @@ def verticalwindinterpolation(file, hubheight):
                 windmatrix[i,k] = 0.0
     return windmatrix
     
+def allmodelrunpercent(directories,hubheight):
     
+    #got the total points working. need to figure out if it is the right number
+    #
+    totalcount = 0
+    dailycount = 0
+    totalpercentup = np.zeros((19,29))
+    for directory in directories:
+        os.chdir(directory)
+        files = gatherfiles('wrfout*')
+        for file in files:
+            ncfile = Dataset(file)
+            windmatrix = verticalwindinterpolation(ncfile,hubheight)
+            for i in range(0,len(dailypercentup)):
+                for k in range(0,len(dailypercentup[0])):
+                    if (windmatrix[i,k] >3.0) and (windmatrix[i,k]<22.0):
+                        dailypercentup[i,k] = dailypercentup[i,k] + 1
+                        totalpercentup[i,k] = totalpercentup[i,k] + 1
+            dailycount += 1
+            totalcount += 1
+    return totalcount
+#    press = getvar(ncfile, 'pressure')  #hPa
+#    pressground = press[0,:,:]
+#    bm = get_basemap(pressground)
+#    fig = plt.figure(figsize=(12,9))
+#    lat,lon = latlon_coords(pressground)
+#    x,y = bm(to_np(lon),to_np(lat))
+#    bm.drawcoastlines(linewidth=0.25)
+#    bm.drawstates(linewidth=0.25)
+#    bm.drawcountries(linewidth=0.25)
+#    bm.contourf(x, y, to_np((totalpercentup/totalcount)*100),cmap = get_cmap('jet'))
+#    plt.colorbar(shrink=.62)
+#    plt.title('Energy Production Percentage for '+date+' Model Run')
+#    plt.savefig('Energy-Production-Percentage-for-'+date+'-Model-Run')
+#    plt.close()
     
     
 
