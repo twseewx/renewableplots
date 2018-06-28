@@ -176,7 +176,7 @@ def energyproductioninterpolated(files,hubheight):
         pressground = press[0,:,:]
         bm = get_basemap(pressground)
         fig = plt.figure(figsize=(12,9))
-        energyproduction = (0.5 * density * Area * verticalwindinterpolation(ncfile,hubheight)**3 * cp)/10**6
+        energyproduction = (0.5 * density * Area * verticalwindinterpolationenergy(ncfile,hubheight)**3 * cp)/10**6
         lat,lon = latlon_coords(pressground)
         x,y = bm(to_np(lon),to_np(lat))
         bm.drawcoastlines(linewidth=0.25)
@@ -249,7 +249,7 @@ def percentinthreshold(files,hubheight):
     plt.savefig('Energy-Production-Percentage-for-'+date+'-Model-Run')
     plt.close()
         
-def verticalwindinterpolation(file, hubheight):
+def verticalwindinterpolationenergy(file, hubheight):
     '''
     Creates an estimated wind speed at the central height of the
     wind tower 
@@ -287,12 +287,45 @@ def verticalwindinterpolation(file, hubheight):
                 windmatrix[i,k] = 0.0
     return windmatrix
     
+
+def verticalwindinterpolation(file, hubheight):
+    '''
+    Creates an estimated wind speed at the central height of the
+    wind tower 
+    
+    Parameters
+    -----------------
+    arg1: file
+        netcdf data file passsed for data acquistion
+    arg2: hubheight
+        integer designated the hub height for interpolation to
+    
+    
+    '''
+    #zO was selected due to the coarse domain, selection of roughness lenght 
+    #was based upon the fact that for 40km domain most of the surface coverage 
+    #of ND is farm land.
+    '''
+    Roughness length -0.055m - Agricultural area with some houses and 
+    8 m high hedges at a distance of more than 1 km
+    '''
+    zO = 0.055                                  #roughness length
+    h1 = 10.0                                   #wind measured height
+    h2 = hubheight                              #middle of blade center of wind hub
+    u10 = getvar(file,'U10')                    #10meter wind U (east-west)
+    v10 = getvar(file,'V10')                    #10meter wind V (north-south)
+    wind10 = np.sqrt(u10**2 + v10**2)           #Wind Speed, no dir
+    v2 = wind10*(np.log(h2/zO)/np.log(h1/zO))   #interpolated windspeed to height (hubheight)
+    wind = v2.to_pandas()
+    windmatrix = wind.as_matrix()
+    return windmatrix
+
+
 def allmodelrunpercent(directories,hubheight):
     
     #got the total points working. need to figure out if it is the right number
     #
     totalcount = 0
-    dailycount = 0
     totalpercentup = np.zeros((19,29))
     for directory in directories:
         os.chdir(directory)
@@ -300,31 +333,54 @@ def allmodelrunpercent(directories,hubheight):
         for file in files:
             ncfile = Dataset(file)
             windmatrix = verticalwindinterpolation(ncfile,hubheight)
-            for i in range(0,len(dailypercentup)):
-                for k in range(0,len(dailypercentup[0])):
+            for i in range(0,len(totalpercentup)):
+                for k in range(0,len(totalpercentup[0])):
                     if (windmatrix[i,k] >3.0) and (windmatrix[i,k]<22.0):
-                        dailypercentup[i,k] = dailypercentup[i,k] + 1
                         totalpercentup[i,k] = totalpercentup[i,k] + 1
-            dailycount += 1
             totalcount += 1
-    return totalcount
-#    press = getvar(ncfile, 'pressure')  #hPa
-#    pressground = press[0,:,:]
-#    bm = get_basemap(pressground)
-#    fig = plt.figure(figsize=(12,9))
-#    lat,lon = latlon_coords(pressground)
-#    x,y = bm(to_np(lon),to_np(lat))
-#    bm.drawcoastlines(linewidth=0.25)
-#    bm.drawstates(linewidth=0.25)
-#    bm.drawcountries(linewidth=0.25)
-#    bm.contourf(x, y, to_np((totalpercentup/totalcount)*100),cmap = get_cmap('jet'))
-#    plt.colorbar(shrink=.62)
-#    plt.title('Energy Production Percentage for '+date+' Model Run')
-#    plt.savefig('Energy-Production-Percentage-for-'+date+'-Model-Run')
-#    plt.close()
+    press = getvar(ncfile, 'pressure')  #hPa
+    pressground = press[0,:,:]
+    bm = get_basemap(pressground)
+    fig = plt.figure(figsize=(12,9))
+    lat,lon = latlon_coords(pressground)
+    x,y = bm(to_np(lon),to_np(lat))
+    bm.drawcoastlines(linewidth=0.25)
+    bm.drawstates(linewidth=0.25)
+    bm.drawcountries(linewidth=0.25)
+    bm.contourf(x, y, to_np((totalpercentup/totalcount)*100),cmap = get_cmap('jet'))
+    plt.colorbar(shrink=.62)
+    plt.title('Percent in threshold for ALL model runs')
+    os.chdir('/Users/twsee/Desktop/renewableoutput/')
+    plt.savefig('Percent in threshold for ALL model runs quick fix')
+    plt.close()
     
-    
-
+def averagewindspeed(directories,hubheight):
+    total = 0
+    count = 0
+    for directory in directories:
+        os.chdir(directory)
+        files = gatherfiles('wrfout*')
+        for file in files:
+            ncfile = Dataset(file)
+            windmatrix = verticalwindinterpolation(ncfile,hubheight)
+            total = windmatrix + total
+            count += 1
+    average = total/count
+    press = getvar(ncfile, 'pressure')  #hPa
+    pressground = press[0,:,:]
+    bm = get_basemap(pressground)
+    fig = plt.figure(figsize=(12,9))
+    lat,lon = latlon_coords(pressground)
+    x,y = bm(to_np(lon),to_np(lat))
+    bm.drawcoastlines(linewidth=0.25)
+    bm.drawstates(linewidth=0.25)
+    bm.drawcountries(linewidth=0.25)
+    bm.contourf(x, y, to_np(average),cmap = get_cmap('jet'))
+    plt.colorbar(shrink=.62)
+    plt.title('Average Wind Speed at '+str(hubheight)+'m across all model runs')
+    os.chdir('/Users/twsee/Desktop/renewableoutput/')
+    plt.savefig('Average Wind Speed across all runs')
+    plt.close()
 
 
 def gathervariables(dataframe):
