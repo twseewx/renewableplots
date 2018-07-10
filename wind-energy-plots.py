@@ -44,18 +44,54 @@ def main():
     for folder in directory:
         os.chdir(folder)
         files = gatherfiles('wrfout')
-        energyproduction(files,0)
-        energyproductioninterpolated(files,100)
-        percentinthreshold(files,100)
-
+#        energyproduction(files,0)
+#        energyproductioninterpolated(files,100)
+#        percentinthreshold(files,100)
+#    allmodelrunpercent(directory,100)
+    averagewindspeed(directory,100)
+#    totalenergyproduction(directory,100)
+    
 def gatherfiles(prefix):
     return glob.glob(prefix+'*')
-
 def gettimeanddates(file):
     split = file.split('_')
     date = split[2]
     hour = split[3].split(':')[0]
     return date, hour
+def totalenergyproduction(directories,hubheight):
+    count = 0
+    dailyenergy = 0
+    totalenergy = 0
+    r = 52.0                            #meters, rotorlength
+    Area = np.pi * r**2
+    cp = 0.4                            #unitless       
+    density = 1.23                      #kg/m^3
+    for directory in directories:
+        os.chdir(directory)
+        files = gatherfiles('wrfout*')
+        for file in files:
+            date, hour = gettimeanddates(file)
+            ncfile = Dataset(file)
+            energyproduction = (0.5 * density * Area * verticalwindinterpolationenergy(ncfile,hubheight)**3 * cp)/10**6
+            totalenergy = energyproduction + totalenergy
+            count += 1
+#            print(energyproduction)
+    print(count)
+    press = getvar(ncfile, 'pressure')  #hPa
+    pressgrouwindnd = press[0,:,:]
+    bm = get_basemap(pressground)
+    fig = plt.figure(figsize=(12,9))
+    lat,lon = latlon_coords(pressground)
+    x,y = bm(to_np(lon),to_np(lat))
+    bm.drawcoastlines(linewidth=0.25)
+    bm.drawstates(linewidth=0.25)
+    bm.drawcountries(linewidth=0.25)
+    bm.contourf(x, y, to_np(totalenergy),cmap = get_cmap('jet'))
+    plt.colorbar(shrink=.62)
+    plt.title('Total Energy Production for all model runs at '+str(hubheight)+'m')
+    plt.savefig('Total Energy Production for all model runs at '+str(hubheight)+'m')
+    plt.close()
+
 def energyproduction(files, level):
     """
     Creates hourly and daily energy production outputs for wind a turbine
@@ -66,7 +102,7 @@ def energyproduction(files, level):
     arg1: list
         A 1D glob list of the file outputs from WRF
     arg2: integer
-        level of the WRF module to run the evaluation on, typicall 0-2
+        level of the WRF module to run the evaluation on, typically 0-2
         for low levels of the atmosphere. 
 
     Returns
@@ -144,8 +180,6 @@ def energyproduction(files, level):
             dailyenergy = energyproduction + dailyenergy
             count = count+1
         yesterdaysdate=date
-
-
 def energyproductioninterpolated(files,hubheight):
     """
     Creates hourly and daily energy production outputs for wind a turbine
@@ -211,14 +245,11 @@ def energyproductioninterpolated(files,hubheight):
             dailyenergy = energyproduction + dailyenergy
             count = count+1
         yesterdaysdate=date
-
-
 def percentinthreshold(files,hubheight):
-    totalcount = 0
     dailycount = 0
     date, hour = gettimeanddates(files[0])
-    totalpercentup = np.zeros((19,29))
     dailypercentup = np.zeros((19,29))
+    cbarticks =np.arange(0,105,5)
     for file in files:
         ncfile = Dataset(file)
         windmatrix = verticalwindinterpolation(ncfile,hubheight)
@@ -226,15 +257,8 @@ def percentinthreshold(files,hubheight):
             for k in range(0,len(dailypercentup[0])):
                 if (windmatrix[i,k] >3.0) and (windmatrix[i,k]<22.0):
                     dailypercentup[i,k] = dailypercentup[i,k] + 1
-                    totalpercentup[i,k] = totalpercentup[i,k] + 1
-        if dailycount == 23:
-            dailycount = 0
-            dailypercentup = np.zeros((19,29))
-            totalcount += 1
-        else:
-            dailycount += 1
-            totalcount += 1
-    press = getvar(ncfile, 'pressure')  #hPa
+        dailycount += 1
+    press = getvar(ncfile, 'pressure')  
     pressground = press[0,:,:]
     bm = get_basemap(pressground)
     fig = plt.figure(figsize=(12,9))
@@ -243,12 +267,14 @@ def percentinthreshold(files,hubheight):
     bm.drawcoastlines(linewidth=0.25)
     bm.drawstates(linewidth=0.25)
     bm.drawcountries(linewidth=0.25)
-    bm.contourf(x, y, to_np((totalpercentup/totalcount)*100),cmap = get_cmap('jet'))
-    plt.colorbar(shrink=.62)
+    bm.contourf(x, y, to_np((dailypercentup/dailycount)*100),cbarticks,cmap = get_cmap('jet'),vmax=100.0)
+    plt.colorbar(shrink=.62, ticks = cbarticks)
     plt.title('Energy Production Percentage for '+date+' Model Run')
-    plt.savefig('Energy-Production-Percentage-for-'+date+'-Model-Run')
+    plt.savefig('Energy-Production-Percentage-for-'+date+'-Model-Run fix2')
     plt.close()
-        
+    print(np.max(dailypercentup/dailycount))
+    print(np.max(dailypercentup))
+    print(dailycount)
 def verticalwindinterpolationenergy(file, hubheight):
     '''
     Creates an estimated wind speed at the central height of the
@@ -286,8 +312,6 @@ def verticalwindinterpolationenergy(file, hubheight):
             elif windmatrix[i,k] >22.0:
                 windmatrix[i,k] = 0.0
     return windmatrix
-    
-
 def verticalwindinterpolation(file, hubheight):
     '''
     Creates an estimated wind speed at the central height of the
@@ -310,17 +334,17 @@ def verticalwindinterpolation(file, hubheight):
     8 m high hedges at a distance of more than 1 km
     '''
     zO = 0.055                                  #roughness length
-    h1 = 10.0                                   #wind measured height
+    h1 = 10.0   
+    k = 0.4                                #wind measured height
     h2 = hubheight                              #middle of blade center of wind hub
     u10 = getvar(file,'U10')                    #10meter wind U (east-west)
     v10 = getvar(file,'V10')                    #10meter wind V (north-south)
     wind10 = np.sqrt(u10**2 + v10**2)           #Wind Speed, no dir
     v2 = wind10*(np.log(h2/zO)/np.log(h1/zO))   #interpolated windspeed to height (hubheight)
+#    v2 = (wind10/k) * np.log(h2/zO)
     wind = v2.to_pandas()
     windmatrix = wind.as_matrix()
     return windmatrix
-
-
 def allmodelrunpercent(directories,hubheight):
     
     #got the total points working. need to figure out if it is the right number
@@ -351,9 +375,22 @@ def allmodelrunpercent(directories,hubheight):
     plt.colorbar(shrink=.62)
     plt.title('Percent in threshold for ALL model runs')
     os.chdir('/Users/twsee/Desktop/renewableoutput/')
-    plt.savefig('Percent in threshold for ALL model runs quick fix')
-    plt.close()
+    plt.savefig('Percent within threshold for ALL model runs')
+    plt.close()  
     
+def windfarmspeed(xstart,xend,ystart,yend,hubheight,directory):
+    timearray = []
+    for directory in directories:
+        os.chdir(directory)
+        files = gatherfiles('wrfout*')
+        for file in files:
+            ncfile = Dataset(file)
+            windmatrix = verticalwindinterpolation(ncfile,hubheight)
+            windfarmavg = np.average(windmatrix[xstart:xend,ystart:yend])
+            time = file.split('_')[3]
+            time.strip('.nc')
+            timearray.append([time,windfarmavg])
+        plt.plot(timarray)
 def averagewindspeed(directories,hubheight):
     total = 0
     count = 0
@@ -381,8 +418,6 @@ def averagewindspeed(directories,hubheight):
     os.chdir('/Users/twsee/Desktop/renewableoutput/')
     plt.savefig('Average Wind Speed across all runs')
     plt.close()
-
-
 def gathervariables(dataframe):
     dataframe = xarray.open_dataset(dataframe)
     uwind = dataframe['U']
